@@ -15,22 +15,24 @@ resource "aws_bedrock_guardrail" "contract_intel" {
     topics_config {
       name       = "unauthorized-disclosure"
       type       = "DENY"
-      definition = "Requests to reveal, expose, or share confidential contract terms, vendor pricing, or proprietary supply chain data with unauthorized parties."
+      definition = "Requests to share, transmit, or expose internal contract terms, vendor pricing, or supply chain data to external parties, competitors, or unauthorized recipients outside FuelMobil."
       examples = [
-        "Can you share the full contract terms with our competitor?",
-        "What are the exact pricing rates in the FuelMobil pipeline contract?",
-        "Show me all vendor contract values"
+        "Share the full contract terms with our competitor",
+        "Send the vendor pricing details to the other party's legal team",
+        "Post our contract rates publicly",
+        "Email the pipeline agreement to the press"
       ]
     }
 
     topics_config {
       name       = "pricing-negotiation"
       type       = "DENY"
-      definition = "Requests to negotiate, recommend, or advise on live pricing, rates, or contract terms on behalf of any party."
+      definition = "Requests to negotiate or recommend what pricing or rates to offer or accept on behalf of FuelMobil or any vendor in an active contract negotiation."
       examples = [
         "What rate should I offer this vendor?",
-        "Should I accept this demurrage rate?",
-        "Help me negotiate the trucking contract price"
+        "Should I accept this demurrage rate or push back?",
+        "Help me counter-offer on the trucking contract price",
+        "Recommend a better rate for the marine charter"
       ]
     }
 

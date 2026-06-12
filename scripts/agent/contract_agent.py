@@ -9,8 +9,12 @@ Usage:
     # Interactive mode
     python scripts/agent/contract_agent.py --interactive
 
-    # Single query
-    python scripts/agent/contract_agent.py --query "What is the demurrage rate in the marine charter?"
+    # Single query (no contract context)
+    python scripts/agent/contract_agent.py --query "What is demurrage?"
+
+    # Single query grounded in a specific contract from S3
+    python scripts/agent/contract_agent.py --contract-id MAR-VC-2024-003 --query "What is the demurrage rate?"
+    python scripts/agent/contract_agent.py --contract-id RAIL-TA-2024-004 --query "What clauses are missing and what is the financial risk?"
 """
 
 import argparse
@@ -30,8 +34,66 @@ GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", "")
 GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
 KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 
+SILVER_BUCKET = os.environ.get("SILVER_BUCKET", "contract-intel-dev-silver")
+
 bedrock = boto3.client("bedrock-runtime", region_name=REGION)
 bedrock_agent_runtime = boto3.client("bedrock-agent-runtime", region_name=REGION)
+s3 = boto3.client("s3", region_name=REGION)
+
+
+def fetch_contract_context(contract_id: str) -> str:
+    """
+    Fetch Silver JSON from S3 and return a structured extraction record as
+    agent context. Passes clause-level metadata rather than raw PDF text so
+    the guardrail topic filters don't fire on confidential document content.
+    """
+    prefixes = ["pipeline", "terminal", "marine", "rail", "trucking"]
+    for prefix in prefixes:
+        key = f"contracts/{prefix}/{contract_id}/silver.json"
+        try:
+            obj = s3.get_object(Bucket=SILVER_BUCKET, Key=key)
+            doc = json.loads(obj["Body"].read())
+        except s3.exceptions.NoSuchKey:
+            continue
+
+        meta    = doc.get("metadata", {})
+        missing = doc.get("missing_clauses", [])
+        detected = doc.get("detected_clauses", {})
+
+        present_clauses  = [k for k, v in detected.items() if v.get("present")]
+        absent_clauses   = [k for k, v in detected.items() if not v.get("present")]
+
+        clause_detail = "\n".join(
+            f"  - {k}: {v.get('match_count', 0)} reference(s) found"
+            for k, v in detected.items() if v.get("present")
+        ) or "  (none detected)"
+
+        missing_detail = "\n".join(f"  - {c}" for c in missing) or "  (none — all required clauses present)"
+
+        context = f"""CONTRACT EXTRACTION RECORD
+Contract ID   : {contract_id}
+Contract Type : {doc.get("contract_type")}
+Effective Date: {meta.get("effective_date", "not extracted")}
+Expiry Date   : {meta.get("expiry_date", "not extracted")}
+Contract Value: {meta.get("contract_value_raw", "not extracted")}
+Pages Extracted: {doc.get("total_pages")} pages, {doc.get("total_words")} words
+
+CLAUSES DETECTED (present in document):
+{clause_detail}
+
+MISSING REQUIRED CLAUSES (gap analysis):
+{missing_detail}
+
+CLAUSE COVERAGE:
+  Present : {len(present_clauses)} of {len(detected)} tracked clause types
+  Absent  : {len(absent_clauses)} clause types not found
+  Required missing: {len(missing)} ({", ".join(missing) if missing else "none"})
+"""
+        return context
+
+    raise FileNotFoundError(
+        f"No Silver JSON found for contract_id={contract_id!r} in s3://{SILVER_BUCKET}"
+    )
 
 SYSTEM_PROMPT = """You are a supply chain contract intelligence assistant for FuelMobil.
 Your role is to help analysts extract key terms, identify value leakage, and answer questions
@@ -108,18 +170,19 @@ def retrieve_from_knowledge_base(query: str, num_results: int = 5) -> str:
     return "\n\n---\n\n".join(chunks)
 
 
-def query_agent(user_query: str, conversation_history: list = None) -> dict:
+def query_agent(user_query: str, conversation_history: list = None, contract_context: str = "") -> dict:
     """
     Send a query through the contract intelligence agent.
     Returns structured result with guardrail outcome, response, and metrics.
+    contract_context: pre-fetched Silver JSON context (from --contract-id or caller).
     """
     start_time = time.time()
 
     messages = conversation_history.copy() if conversation_history else []
-    context = ""
+    context = contract_context
 
-    # RAG retrieval if enabled
-    if KNOWLEDGE_BASE_ID:
+    # RAG retrieval if enabled (and no direct context provided)
+    if KNOWLEDGE_BASE_ID and not context:
         context = retrieve_from_knowledge_base(user_query)
 
     query_with_context = user_query
@@ -292,15 +355,22 @@ def main():
     parser.add_argument("--test-guardrail", action="store_true", help="Run governance test suite")
     parser.add_argument("--interactive", action="store_true", help="Interactive query mode")
     parser.add_argument("--query", type=str, help="Single query")
+    parser.add_argument("--contract-id", type=str, help="Load contract from S3 Silver layer as grounded context")
     args = parser.parse_args()
+
+    contract_context = ""
+    if args.contract_id:
+        print(f"Fetching contract context for {args.contract_id} from S3...")
+        contract_context = fetch_contract_context(args.contract_id)
 
     if args.test_guardrail:
         run_guardrail_tests()
     elif args.interactive:
         interactive_mode()
     elif args.query:
-        result = query_agent(args.query)
-        print(json.dumps(result, indent=2))
+        result = query_agent(args.query, contract_context=contract_context)
+        print(f"\nGuardrail : {result['guardrail_action']} | Latency: {result['latency_ms']}ms | Tokens: {result['total_tokens']}")
+        print(f"\n{result['response']}\n")
     else:
         parser.print_help()
 
