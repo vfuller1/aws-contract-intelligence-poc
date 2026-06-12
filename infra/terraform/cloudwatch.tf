@@ -158,7 +158,7 @@ resource "aws_cloudwatch_metric_alarm" "agent_latency_slo" {
   metric_name         = "AgentLatencyMs"
   namespace           = "ContractIntel/Performance"
   period              = 300
-  statistic           = "p99"
+  extended_statistic  = "p99"
   threshold           = 10000
   treat_missing_data  = "notBreaching"
 
@@ -191,14 +191,20 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
     widgets = [
       {
         type   = "text"
-        x = 0; y = 0; width = 24; height = 2
+        x      = 0
+        y      = 0
+        width  = 24
+        height = 2
         properties = {
           markdown = "# Contract Intelligence — Operations Dashboard\n**Stack:** Bedrock + Lambda + Glue + Athena | **Env:** ${var.environment} | **Region:** ${var.aws_region}"
         }
       },
       {
         type   = "metric"
-        x = 0; y = 2; width = 6; height = 6
+        x      = 0
+        y      = 2
+        width  = 6
+        height = 6
         properties = {
           title  = "Guardrail Outcomes"
           view   = "pie"
@@ -211,7 +217,10 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
       },
       {
         type   = "metric"
-        x = 6; y = 2; width = 9; height = 6
+        x      = 6
+        y      = 2
+        width  = 9
+        height = 6
         properties = {
           title  = "Agent Latency P50 / P90 / P99 vs 10s SLO"
           view   = "timeSeries"
@@ -228,7 +237,10 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
       },
       {
         type   = "metric"
-        x = 15; y = 2; width = 9; height = 6
+        x      = 15
+        y      = 2
+        width  = 9
+        height = 6
         properties = {
           title  = "Token Throughput"
           view   = "timeSeries"
@@ -240,7 +252,10 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
       },
       {
         type   = "metric"
-        x = 0; y = 8; width = 8; height = 6
+        x      = 0
+        y      = 8
+        width  = 8
+        height = 6
         properties = {
           title  = "Contracts Processed (ETL)"
           view   = "timeSeries"
@@ -252,7 +267,10 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
       },
       {
         type   = "metric"
-        x = 8; y = 8; width = 8; height = 6
+        x      = 8
+        y      = 8
+        width  = 8
+        height = 6
         properties = {
           title  = "ETL Errors"
           view   = "timeSeries"
@@ -264,7 +282,10 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
       },
       {
         type   = "alarm"
-        x = 16; y = 8; width = 8; height = 6
+        x      = 16
+        y      = 8
+        width  = 8
+        height = 6
         properties = {
           title  = "Active Alarms"
           alarms = [
