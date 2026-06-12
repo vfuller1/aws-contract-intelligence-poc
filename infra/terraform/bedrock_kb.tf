@@ -125,11 +125,63 @@ resource "aws_opensearchserverless_access_policy" "data" {
   }])
 }
 
+# Create the vector index in OpenSearch before Bedrock KB tries to use it.
+# Terraform does not do this automatically — the KB API returns 404 without it.
+resource "null_resource" "opensearch_index" {
+  count = var.enable_rag ? 1 : 0
+
+  depends_on = [
+    aws_opensearchserverless_collection.contracts,
+    aws_opensearchserverless_access_policy.data,
+    aws_iam_role_policy.bedrock_kb_policy,
+  ]
+
+  triggers = {
+    collection_id = aws_opensearchserverless_collection.contracts[0].id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      pip install requests requests-aws4auth --quiet
+      python3 - <<'PYEOF'
+import boto3, json, time, sys
+import requests
+from requests_aws4auth import AWS4Auth
+
+time.sleep(20)
+
+session = boto3.Session()
+creds   = session.get_credentials()
+auth    = AWS4Auth(creds.access_key, creds.secret_key, "us-east-1", "aoss", session_token=creds.token)
+
+client   = boto3.client("opensearchserverless", region_name="us-east-1")
+endpoint = client.batch_get_collection(names=["${local.prefix}-vectors"])["collectionDetails"][0]["collectionEndpoint"]
+
+body = {
+  "settings": {"index": {"knn": True}},
+  "mappings": {"properties": {
+    "contract-vector":          {"type": "knn_vector", "dimension": 1024,
+                                 "method": {"name": "hnsw", "space_type": "l2", "engine": "faiss"}},
+    "AMAZON_BEDROCK_TEXT_CHUNK": {"type": "text"},
+    "AMAZON_BEDROCK_METADATA":   {"type": "text", "index": False}
+  }}
+}
+
+r = requests.put(f"{endpoint}/contract-chunks", json=body, auth=auth)
+print(f"Index creation: {r.status_code} {r.text}")
+sys.exit(0 if r.status_code in (200, 201, 400) else 1)
+PYEOF
+    EOT
+  }
+}
+
 # Bedrock Knowledge Base
 resource "aws_bedrockagent_knowledge_base" "contracts" {
   count    = var.enable_rag ? 1 : 0
   name     = "${local.prefix}-knowledge-base"
   role_arn = aws_iam_role.bedrock_kb[0].arn
+
+  depends_on = [null_resource.opensearch_index]
 
   knowledge_base_configuration {
     type = "VECTOR"
