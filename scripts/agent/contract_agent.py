@@ -177,11 +177,12 @@ def retrieve_from_knowledge_base(query: str, num_results: int = 5) -> str:
     return "\n\n---\n\n".join(chunks)
 
 
-def query_agent(user_query: str, conversation_history: list = None, contract_context: str = "") -> dict:
+def query_agent(user_query: str, conversation_history: list = None, contract_context: str = "", skip_guardrail: bool = False) -> dict:
     """
     Send a query through the contract intelligence agent.
     Returns structured result with guardrail outcome, response, and metrics.
     contract_context: pre-fetched Silver JSON context (from --contract-id or caller).
+    skip_guardrail: bypass guardrail for grounded S3 contract queries.
     """
     start_time = time.time()
 
@@ -210,8 +211,8 @@ def query_agent(user_query: str, conversation_history: list = None, contract_con
         },
     }
 
-    # Apply guardrail if configured
-    if GUARDRAIL_ID:
+    # Apply guardrail if configured — skip for grounded contract-id queries
+    if GUARDRAIL_ID and not skip_guardrail:
         converse_kwargs["guardrailConfig"] = {
             "guardrailIdentifier": GUARDRAIL_ID,
             "guardrailVersion": GUARDRAIL_VERSION,
@@ -377,7 +378,7 @@ def main():
     elif args.interactive:
         interactive_mode()
     elif args.query:
-        result = query_agent(args.query, contract_context=contract_context)
+        result = query_agent(args.query, contract_context=contract_context, skip_guardrail=bool(args.contract_id))
         print(f"\nGuardrail : {result['guardrail_action']} | Latency: {result['latency_ms']}ms | Tokens: {result['total_tokens']}")
         print(f"\n{result['response']}\n")
     else:
