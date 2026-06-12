@@ -104,7 +104,7 @@ CONTRACTS = [
         "type": "rail",
         "title": "Rail Transportation Agreement",
         "vendor": "Central Continental Railroad Corp.",
-        "commodity": "Crude Oil — Unit Train Service",
+        "commodity": "Crude Oil - Unit Train Service",
         "volume_commitment": "10 unit trains per month minimum",
         "rate": "$2,850 per car per movement",
         "term_months": 18,
@@ -128,7 +128,7 @@ CONTRACTS = [
         "type": "trucking",
         "title": "Trucking and Freight Rate Agreement",
         "vendor": "Lone Star Logistics & Transport LLC",
-        "commodity": "Refined Products — Bulk Liquid Transport",
+        "commodity": "Refined Products - Bulk Liquid Transport",
         "volume_commitment": "150 loads per month estimated volume",
         "rate": "$4.25 per loaded mile; $1.10 per empty mile",
         "term_months": 12,
@@ -158,7 +158,7 @@ class ContractPDF(FPDF):
     def header(self):
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(100, 100, 100)
-        self.cell(0, 8, f"CONFIDENTIAL — Contract ID: {self.contract_id}", align="R")
+        self.cell(0, 8, f"CONFIDENTIAL - Contract ID: {self.contract_id}", align="R")
         self.ln(4)
         self.set_draw_color(200, 200, 200)
         self.line(10, self.get_y(), 200, self.get_y())
@@ -202,7 +202,7 @@ def generate_contract_pdf(contract: dict, output_dir: str) -> str:
     pdf.cell(0, 8, "PARTIES TO THIS AGREEMENT", align="C")
     pdf.ln(6)
     pdf.set_font("Helvetica", size=10)
-    pdf.cell(0, 6, "ExxonMobil Supply Chain Services LLC (\"Shipper\" / \"Buyer\")", align="C")
+    pdf.cell(0, 6, "FuelMobil Supply Chain Services LLC (\"Shipper\" / \"Buyer\")", align="C")
     pdf.ln(5)
     pdf.cell(0, 6, f"{contract['vendor']} (\"Carrier\" / \"Vendor\")", align="C")
     pdf.ln(14)
@@ -293,7 +293,7 @@ def generate_contract_pdf(contract: dict, output_dir: str) -> str:
         "Each signatory represents and warrants that they have the authority to bind their respective organization.")
     pdf.ln(14)
 
-    for party in ["ExxonMobil Supply Chain Services LLC", contract["vendor"]]:
+    for party in ["FuelMobil Supply Chain Services LLC", contract["vendor"]]:
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(90, 6, party)
         pdf.ln(12)

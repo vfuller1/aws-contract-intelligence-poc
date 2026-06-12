@@ -82,6 +82,88 @@ Supply chain organizations manage thousands of unique, multi-page contracts and 
 
 ---
 
+## Sample Contract — Marine Voyage Charter (MAR-VC-2024-003)
+
+```
+================================================================================
+CONFIDENTIAL - Contract ID: MAR-VC-2024-003
+================================================================================
+
+                       MARINE VOYAGE CHARTER PARTY
+
+  Contract ID:   MAR-VC-2024-003
+  Reference:     REF-A7X2K9
+  Effective:     June 12, 2026
+  Expiration:    December 09, 2026
+
+  PARTIES
+  -------
+  FuelMobil Supply Chain Services LLC        ("Charterer")
+  Atlantic Marine Carriers Ltd.              ("Owner / Carrier")
+
+  CONTRACT SUMMARY
+  ----------------
+  Commodity         : Liquefied Natural Gas (LNG)
+  Volume            : 140,000 cubic meters per voyage
+  Charter Hire      : $85,000 per day
+  Contract Term     : 6 months
+
+  TERMS AND CONDITIONS
+  --------------------
+
+  Section 1. Payment Terms
+    Charter hire payable 15 days in advance. Off-hire deductions
+    calculated on a pro-rata daily basis.
+
+  Section 2. Demurrage
+    Laytime allowed: 36 running hours SHINC (Sundays and Holidays
+    Included). Demurrage rate: $42,000 per day, pro-rata.
+    Dispatch: half demurrage rate.
+
+  Section 3. Force Majeure
+    In the event of war, hostilities, blockades, or acts of God
+    preventing the vessel from reaching the load or discharge port,
+    the charter is cancelled without liability to either party.
+
+  Section 4. Termination
+    Owner may withdraw vessel for non-payment of charter hire if
+    payment remains outstanding for more than 3 banking days after
+    due date.
+
+  Section 5. Liability Cap
+    Carrier liability limited to SDR 666.67 per package or
+    SDR 2.00 per kilogram of gross weight, whichever is higher,
+    per Hague-Visby Rules.
+
+  Section 6. Indemnification
+    Charterer shall indemnify Owner against all consequences
+    arising from compliance with Charterer's instructions
+    regarding the cargo.
+
+  Section 7. Dispute Resolution
+    Governed by English law. Disputes submitted to London
+    Maritime Arbitrators Association (LMAA).
+
+================================================================================
+  Page 1 | CONFIDENTIAL | MAR-VC-2024-003
+================================================================================
+```
+
+**What the pipeline extracts from this contract:**
+
+| Extracted Field | Value | Risk Flag |
+|---|---|---|
+| Charter hire rate | $85,000/day | — |
+| Demurrage rate | $42,000/day pro-rata | — |
+| Laytime allowance | 36 hrs SHINC | — |
+| Liability cap | SDR 666.67/package (Hague-Visby) | — |
+| Governing law | English law / LMAA arbitration | — |
+| Missing clauses | none | — |
+| Extraction confidence | 0.960 | — |
+| Pricing anomaly | False | — |
+
+---
+
 ## Guardrail Policies
 
 | Policy | Type | Behaviour |
@@ -111,7 +193,7 @@ Supply chain organizations manage thousands of unique, multi-page contracts and 
 
 ## Architecture Decision: Why Not Databricks?
 
-The ExxonMobil stack includes Databricks. This POC uses AWS-native serverless for three deliberate reasons:
+The FuelMobil stack includes Databricks. This POC uses AWS-native serverless for three deliberate reasons:
 
 - **Cost:** $0 at rest. Databricks clusters idle at ~$2–5/hr. This stack costs $0/hr when idle.
 - **Simplicity:** No cluster management, no Spark tuning. Each ETL step is a standalone Python function.

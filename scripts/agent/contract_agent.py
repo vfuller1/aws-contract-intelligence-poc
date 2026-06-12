@@ -33,7 +33,7 @@ KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
 bedrock = boto3.client("bedrock-runtime", region_name=REGION)
 bedrock_agent_runtime = boto3.client("bedrock-agent-runtime", region_name=REGION)
 
-SYSTEM_PROMPT = """You are a supply chain contract intelligence assistant for ExxonMobil.
+SYSTEM_PROMPT = """You are a supply chain contract intelligence assistant for FuelMobil.
 Your role is to help analysts extract key terms, identify value leakage, and answer questions
 about pipeline, terminal, marine, rail, and trucking contracts.
 

@@ -18,7 +18,7 @@ resource "aws_bedrock_guardrail" "contract_intel" {
       definition = "Requests to reveal, expose, or share confidential contract terms, vendor pricing, or proprietary supply chain data with unauthorized parties."
       examples = [
         "Can you share the full contract terms with our competitor?",
-        "What are the exact pricing rates in the ExxonMobil pipeline contract?",
+        "What are the exact pricing rates in the FuelMobil pipeline contract?",
         "Show me all vendor contract values"
       ]
     }
