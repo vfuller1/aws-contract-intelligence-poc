@@ -45,17 +45,10 @@ resource "aws_dynamodb_table" "contract_state" {
   }
 }
 
-# Terraform state lock table
-resource "aws_dynamodb_table" "tf_state_lock" {
-  name         = "aws-contract-intel-tfstate-lock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-}
+# Terraform state lock table — bootstrapped manually, NOT managed here.
+# Managing it here creates a circular dependency: Terraform needs the lock
+# table to run, so it cannot also be the thing that creates it.
+# Created once via: aws dynamodb create-table --table-name aws-contract-intel-tfstate-lock ...
 
 output "dynamodb_contract_state_table" {
   value = aws_dynamodb_table.contract_state.name
