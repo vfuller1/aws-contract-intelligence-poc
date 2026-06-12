@@ -56,7 +56,7 @@ Supply chain organizations manage thousands of unique, multi-page contracts and 
 | Governance | Amazon Bedrock Guardrails |
 | RAG | Bedrock Knowledge Base + OpenSearch Serverless |
 | Embeddings | Amazon Titan Text Embeddings V2 (1,024-dim) |
-| ETL | AWS Lambda (Python 3.12) + Lambda Layer (pypdf) |
+| ETL | AWS Lambda (Python 3.12) + pdfplumber (PDF extraction) |
 | Data Lake | Amazon S3 (Bronze / Silver / Gold medallion) |
 | Cataloguing | AWS Glue Data Catalog + Crawler |
 | Analytics | Amazon Athena |
@@ -78,7 +78,7 @@ Supply chain organizations manage thousands of unique, multi-page contracts and 
 | RAIL-TA | Rail Transportation Agreement | Rail |
 | TRUCK-RA | Trucking Rate Agreement | Trucking |
 
-**After ETL: ~1,050 Gold chunks (210 per contract type, 2,000-char target with 200-char overlap).**
+**After ETL: 2 Gold chunks per contract (2,000-char sliding window, 200-char overlap). Each chunk carries full contract metadata for Athena queries.**
 
 ---
 
@@ -262,35 +262,46 @@ push to main
 ### Deploy
 
 ```bash
-# 1. Build the pypdf Lambda layer
-.\scripts\build_lambda_layers.ps1
-
-# 2. Deploy infrastructure (RAG off by default)
+# 1. Deploy infrastructure (RAG off by default — push to main triggers CI/CD)
 cd infra/terraform
 terraform init
-terraform apply
+terraform apply -var="enable_rag=false"
+```
 
-# 3. Generate synthetic contracts and upload to Bronze
-python scripts/ingest/generate_contracts.py
+### Smoke test (no AWS required)
 
-# Upload PDFs to the Bronze S3 bucket — ETL fires automatically
+```bash
+python scripts/test_local.py
+# Validates ETL logic for all 5 contract types offline
+```
+
+### Seed live data (Bronze → Silver → Gold → DynamoDB)
+
+```bash
+python scripts/seed_live.py
+# Generates synthetic PDFs, runs full ETL locally, uploads all three S3 layers
+```
+
+### Run Glue crawler + analytics report
+
+```bash
+aws glue start-crawler --name contract-intel-dev-gold-crawler
+# Wait ~60s, then:
+python scripts/analytics/portfolio_report.py
 ```
 
 ### Test the Guardrail
 
 ```bash
-# Run all 6 governance scenarios
-python scripts/agent/contract_agent.py --test-guardrail
-
-# Interactive mode
+# Interactive agent with guardrail enforcement
 python scripts/agent/contract_agent.py --interactive
 ```
 
 ### Enable / Disable RAG (~$0.96/hr while active)
 
 ```powershell
-.\scripts\kb_enable.ps1   # RAG on
-.\scripts\kb_disable.ps1  # RAG off — destroys OpenSearch, preserves Gold data
+# Set enable_rag=true in infra/terraform/main.tf, then push to main
+# RAG off: set enable_rag=false and push — destroys OpenSearch, preserves Gold data
 ```
 
 ---
@@ -301,23 +312,26 @@ python scripts/agent/contract_agent.py --interactive
 |---|---|
 | `infra/terraform/` | All Terraform IaC |
 | `infra/terraform/main.tf` | Provider, backend, variables |
-| `infra/terraform/s3.tf` | Bronze / Silver / Gold buckets |
-| `infra/terraform/lambda.tf` | ETL Lambda functions |
+| `infra/terraform/s3.tf` | Bronze / Silver / Gold / Athena results buckets |
+| `infra/terraform/lambda.tf` | ETL Lambda functions + IAM roles |
 | `infra/terraform/bedrock_guardrails.tf` | Guardrail: PII, topics, content, prompt-attack |
 | `infra/terraform/bedrock_kb.tf` | Knowledge Base + OpenSearch (feature-flagged) |
 | `infra/terraform/glue.tf` | Glue crawler + Data Catalog |
-| `infra/terraform/athena.tf` | Athena workgroup + query results bucket |
-| `infra/terraform/cloudwatch.tf` | Log groups, metric filters, dashboard, alarms |
+| `infra/terraform/athena.tf` | Athena workgroup + 4 named value leakage queries |
+| `infra/terraform/cloudwatch.tf` | Log groups, metric filters, dashboard, alarms, SNS |
 | `infra/terraform/kms.tf` | Customer-managed encryption key |
-| `infra/terraform/dynamodb.tf` | State tracking table |
-| `lambda/router.py` | Bronze router — routes + triggers ETL |
-| `lambda/etl_bronze_to_silver.py` | PDF → JSON extraction (pypdf) |
-| `lambda/etl_silver_to_gold.py` | JSON → 2,000-char chunks + metadata tagging |
-| `scripts/agent/contract_agent.py` | Agent runtime — Bedrock Converse + guardrail |
+| `infra/terraform/dynamodb.tf` | Contract processing state table |
+| `infra/terraform/github_actions.tf` | GitHub Actions OIDC provider (bootstrapped externally) |
+| `lambda/router.py` | Bronze S3 trigger — detects contract type, writes state, invokes ETL |
+| `lambda/etl_bronze_to_silver.py` | PDF → JSON extraction (pdfplumber, clause detection) |
+| `lambda/etl_silver_to_gold.py` | JSON → 2,000-char chunks, confidence scoring, anomaly detection |
+| `scripts/agent/contract_agent.py` | Agent runtime — Bedrock Converse API + guardrail trace |
 | `scripts/ingest/generate_contracts.py` | Synthetic supply chain contract PDF generator |
-| `scripts/kb_enable.ps1` | RAG on — terraform apply + StartIngestionJob |
-| `scripts/kb_disable.ps1` | RAG off — destroys OpenSearch |
-| `.github/workflows/` | Terraform plan/apply via OIDC |
+| `scripts/seed_live.py` | End-to-end data seeder — ETL locally, uploads all 3 S3 layers |
+| `scripts/test_local.py` | Offline ETL smoke test — all 5 contract types, no AWS needed |
+| `scripts/analytics/value_leakage.sql` | 8 production Athena queries (Trino / engine v3) |
+| `scripts/analytics/portfolio_report.py` | Live Athena portfolio report — risk tiers, clause distribution |
+| `.github/workflows/` | Terraform plan/apply via OIDC (no static credentials) |
 
 ---
 

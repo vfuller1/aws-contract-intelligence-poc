@@ -14,9 +14,13 @@ import argparse
 import json
 import logging
 import os
+import sys
 import time
 import boto3
 from datetime import datetime, timezone
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
