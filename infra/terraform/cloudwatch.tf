@@ -208,6 +208,7 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
         properties = {
           title  = "Guardrail Outcomes"
           view   = "pie"
+          region = var.aws_region
           period = 3600
           metrics = [
             ["ContractIntel/Guardrails", "GuardrailAllowed", { label = "Allowed", color = "#2ca02c" }],
@@ -224,6 +225,7 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
         properties = {
           title  = "Agent Latency P50 / P90 / P99 vs 10s SLO"
           view   = "timeSeries"
+          region = var.aws_region
           period = 300
           metrics = [
             ["ContractIntel/Performance", "AgentLatencyMs", { stat = "p50", label = "P50", color = "#1f77b4" }],
@@ -244,6 +246,7 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
         properties = {
           title  = "Token Throughput"
           view   = "timeSeries"
+          region = var.aws_region
           period = 300
           metrics = [
             ["ContractIntel/Cost", "TotalTokens", { stat = "Sum", label = "Tokens / 5min" }]
@@ -259,6 +262,7 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
         properties = {
           title  = "Contracts Processed (ETL)"
           view   = "timeSeries"
+          region = var.aws_region
           period = 3600
           metrics = [
             ["ContractIntel/ETL", "ContractsProcessed", { stat = "Sum", label = "Contracts / hr", color = "#2ca02c" }]
@@ -274,6 +278,7 @@ resource "aws_cloudwatch_dashboard" "contract_intel" {
         properties = {
           title  = "ETL Errors"
           view   = "timeSeries"
+          region = var.aws_region
           period = 300
           metrics = [
             ["ContractIntel/ETL", "ETLErrors", { stat = "Sum", label = "Errors", color = "#d62728" }]
