@@ -41,6 +41,12 @@ resource "aws_iam_role_policy" "bedrock_kb_policy" {
         ]
       },
       {
+        Sid    = "KmsDecryptGold"
+        Effect = "Allow"
+        Action = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource = [aws_kms_key.main.arn]
+      },
+      {
         Sid      = "OpenSearchAccess"
         Effect   = "Allow"
         Action   = ["aoss:APIAccessAll"]
