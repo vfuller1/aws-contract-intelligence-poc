@@ -192,15 +192,17 @@ def query_agent(user_query: str, conversation_history: list = None, contract_con
     if KNOWLEDGE_BASE_ID and not context:
         context = retrieve_from_knowledge_base(user_query)
 
-    query_with_context = user_query
+    # Contract context goes in the system prompt so guardrail topic policies
+    # only evaluate the user question, not the raw contract text.
+    system_text = SYSTEM_PROMPT
     if context:
-        query_with_context = f"Relevant contract context:\n{context}\n\nQuestion: {user_query}"
+        system_text = SYSTEM_PROMPT + f"\n\nCONTRACT CONTEXT (internal use only):\n{context}"
 
-    messages.append({"role": "user", "content": [{"text": query_with_context}]})
+    messages.append({"role": "user", "content": [{"text": user_query}]})
 
     converse_kwargs = {
         "modelId": MODEL_ID,
-        "system": [{"text": SYSTEM_PROMPT}],
+        "system": [{"text": system_text}],
         "messages": messages,
         "inferenceConfig": {
             "maxTokens": 1000,
