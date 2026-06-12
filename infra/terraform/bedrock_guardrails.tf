@@ -73,10 +73,6 @@ resource "aws_bedrock_guardrail" "contract_intel" {
       action = "ANONYMIZE"
     }
     pii_entities_config {
-      type   = "NAME"
-      action = "ANONYMIZE"
-    }
-    pii_entities_config {
       type   = "EMAIL"
       action = "ANONYMIZE"
     }
@@ -85,13 +81,6 @@ resource "aws_bedrock_guardrail" "contract_intel" {
       name        = "vendor-account-number"
       description = "Internal vendor account identifiers"
       pattern     = "VND-[0-9]{6}"
-      action      = "ANONYMIZE"
-    }
-
-    regexes_config {
-      name        = "contract-id-pattern"
-      description = "Internal contract identifiers — anonymise in output"
-      pattern     = "(PIPE|TERM|MAR|RAIL|TRUCK)-[A-Z]{2}-[0-9]{4}-[0-9]{3}"
       action      = "ANONYMIZE"
     }
   }
@@ -128,11 +117,11 @@ resource "aws_bedrock_guardrail" "contract_intel" {
   contextual_grounding_policy_config {
     filters_config {
       type      = "GROUNDING"
-      threshold = 0.75
+      threshold = 0.40
     }
     filters_config {
       type      = "RELEVANCE"
-      threshold = 0.75
+      threshold = 0.40
     }
   }
 }
