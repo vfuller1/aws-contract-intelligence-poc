@@ -33,42 +33,55 @@ resource "aws_athena_named_query" "value_leakage_summary" {
   name        = "value-leakage-summary"
   workgroup   = aws_athena_workgroup.contracts.id
   database    = aws_glue_catalog_database.contracts.name
-  description = "Summarize contracts with non-standard pricing terms or missing clauses"
+  description = "Portfolio risk summary by contract type — missing clauses, pricing anomalies, confidence"
 
   query = <<-SQL
     SELECT
       contract_type,
-      COUNT(*) AS total_contracts,
-      SUM(CASE WHEN missing_clauses > 0 THEN 1 ELSE 0 END) AS contracts_with_missing_clauses,
-      SUM(CASE WHEN pricing_anomaly = true THEN 1 ELSE 0 END) AS pricing_anomalies,
-      AVG(extraction_confidence) AS avg_confidence
-    FROM contracts
+      COUNT(DISTINCT contract_id)                                           AS total_contracts,
+      SUM(CASE WHEN missing_clause_count > 0 THEN 1 ELSE 0 END)           AS contracts_missing_clauses,
+      SUM(CASE WHEN pricing_anomaly = true  THEN 1 ELSE 0 END)            AS pricing_anomaly_flags,
+      SUM(CASE WHEN extraction_confidence < 0.75 THEN 1 ELSE 0 END)       AS low_confidence_count,
+      ROUND(AVG(extraction_confidence), 3)                                  AS avg_confidence
+    FROM ${aws_glue_catalog_database.contracts.name}.contracts
+    WHERE chunk_index = 0
     GROUP BY contract_type
-    ORDER BY pricing_anomalies DESC
+    ORDER BY contracts_missing_clauses DESC, pricing_anomaly_flags DESC
   SQL
 }
 
-resource "aws_athena_named_query" "pipeline_contracts_review" {
-  name        = "pipeline-contracts-review"
+resource "aws_athena_named_query" "value_leakage_risk_register" {
+  name        = "value-leakage-risk-register"
   workgroup   = aws_athena_workgroup.contracts.id
   database    = aws_glue_catalog_database.contracts.name
-  description = "Review all pipeline contracts for value leakage indicators"
+  description = "Full portfolio risk register with composite leakage score per contract"
 
   query = <<-SQL
     SELECT
       contract_id,
-      vendor_id,
+      contract_type,
+      contract_value,
       effective_date,
       expiry_date,
-      contract_value,
-      missing_clauses,
-      pricing_anomaly,
-      extraction_confidence,
-      extracted_at
-    FROM contracts
-    WHERE contract_type = 'PIPELINE'
-      AND (missing_clauses > 0 OR pricing_anomaly = true)
-    ORDER BY contract_value DESC
+      ROUND(extraction_confidence, 3)                                        AS confidence,
+      missing_clause_count,
+      array_join(missing_clauses, ', ')                                      AS missing_clause_names,
+      CAST(pricing_anomaly AS VARCHAR)                                       AS pricing_anomaly,
+      (CASE WHEN missing_clause_count > 0 THEN 1 ELSE 0 END
+     + CASE WHEN pricing_anomaly = true  THEN 1 ELSE 0 END
+     + CASE WHEN extraction_confidence < 0.75 THEN 1 ELSE 0 END)            AS leakage_score,
+      CASE
+        WHEN (CASE WHEN missing_clause_count > 0 THEN 1 ELSE 0 END
+            + CASE WHEN pricing_anomaly = true  THEN 1 ELSE 0 END
+            + CASE WHEN extraction_confidence < 0.75 THEN 1 ELSE 0 END) >= 2 THEN 'HIGH'
+        WHEN (CASE WHEN missing_clause_count > 0 THEN 1 ELSE 0 END
+            + CASE WHEN pricing_anomaly = true  THEN 1 ELSE 0 END
+            + CASE WHEN extraction_confidence < 0.75 THEN 1 ELSE 0 END) = 1  THEN 'MEDIUM'
+        ELSE 'CLEAN'
+      END                                                                    AS risk_level
+    FROM ${aws_glue_catalog_database.contracts.name}.contracts
+    WHERE chunk_index = 0
+    ORDER BY leakage_score DESC, contract_type
   SQL
 }
 
@@ -76,39 +89,40 @@ resource "aws_athena_named_query" "low_confidence_extractions" {
   name        = "low-confidence-extractions"
   workgroup   = aws_athena_workgroup.contracts.id
   database    = aws_glue_catalog_database.contracts.name
-  description = "Identify contracts where AI extraction confidence is below threshold — needs human review"
+  description = "Contracts where AI extraction confidence < 0.75 — flag for human review"
 
   query = <<-SQL
     SELECT
       contract_id,
       contract_type,
-      extraction_confidence,
-      missing_clauses,
-      s3_gold_path,
+      ROUND(extraction_confidence, 3)    AS confidence,
+      missing_clause_count,
+      array_join(missing_clauses, ', ')  AS missing_clause_names,
+      s3_silver_key,
       extracted_at
-    FROM contracts
-    WHERE extraction_confidence < 0.75
+    FROM ${aws_glue_catalog_database.contracts.name}.contracts
+    WHERE chunk_index = 0
+      AND extraction_confidence < 0.75
     ORDER BY extraction_confidence ASC
   SQL
 }
 
-resource "aws_athena_named_query" "expiring_contracts" {
-  name        = "expiring-contracts-90-days"
+resource "aws_athena_named_query" "missing_clause_distribution" {
+  name        = "missing-clause-distribution"
   workgroup   = aws_athena_workgroup.contracts.id
   database    = aws_glue_catalog_database.contracts.name
-  description = "Contracts expiring within 90 days — renewal risk"
+  description = "Which clause types are most commonly absent across the portfolio"
 
   query = <<-SQL
     SELECT
-      contract_id,
-      contract_type,
-      vendor_id,
-      contract_value,
-      expiry_date,
-      DATE_DIFF('day', CURRENT_DATE, DATE(expiry_date)) AS days_until_expiry
-    FROM contracts
-    WHERE DATE(expiry_date) BETWEEN CURRENT_DATE AND DATE_ADD('day', 90, CURRENT_DATE)
-    ORDER BY expiry_date ASC
+      clause_name,
+      COUNT(*) AS contracts_missing
+    FROM ${aws_glue_catalog_database.contracts.name}.contracts
+    CROSS JOIN UNNEST(missing_clauses) AS t(clause_name)
+    WHERE chunk_index = 0
+      AND missing_clause_count > 0
+    GROUP BY clause_name
+    ORDER BY contracts_missing DESC
   SQL
 }
 
