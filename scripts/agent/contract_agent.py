@@ -21,9 +21,13 @@ import argparse
 import json
 import logging
 import os
+import sys
 import time
 import boto3
 from datetime import datetime, timezone
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -88,6 +92,9 @@ CLAUSE COVERAGE:
   Present : {len(present_clauses)} of {len(detected)} tracked clause types
   Absent  : {len(absent_clauses)} clause types not found
   Required missing: {len(missing)} ({", ".join(missing) if missing else "none"})
+
+FULL CONTRACT TEXT (extracted):
+{doc.get("full_text", "")}
 """
         return context
 

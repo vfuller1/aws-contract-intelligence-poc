@@ -55,7 +55,7 @@ variable "project" {
 variable "enable_rag" {
   description = "Feature flag — enables Bedrock Knowledge Base + OpenSearch (~$0.96/hr)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # ---------------------------------------------------------------------------

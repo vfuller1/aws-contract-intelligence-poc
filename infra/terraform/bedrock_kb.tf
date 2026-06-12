@@ -95,7 +95,7 @@ resource "aws_opensearchserverless_security_policy" "network" {
       { ResourceType = "collection", Resource = ["collection/${local.prefix}-vectors"] },
       { ResourceType = "dashboard",  Resource = ["collection/${local.prefix}-vectors"] }
     ]
-    AllowFromPublic = false
+    AllowFromPublic = true
   }])
 }
 
